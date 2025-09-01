@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useVoiceStore } from '../stores/voicebot';
+import { usePokedexStore } from '../stores/pokedex';
+import {savePokemonInfo,getPokemonInfo,toolDescription} from '../tools/pokemonTool'
 
 const store = useVoiceStore();
+const storePokedex = usePokedexStore();
 const recognition = ref<SpeechRecognition | null>(null);
 
 // Inicializa reconocimiento de voz (Web Speech API)
@@ -29,23 +32,56 @@ function initSpeechRecognition() {
 }
 
 async function sendToGemini(text: string) {
-  try {
+  try { 
+
+    text = toolDescription + text
+
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text }] }]
       })
-    });
-
+    }); 
     const data = await response.json();
-    // Gemini responde en data.candidates[0].content.parts[0].text
-    const botReply = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'No response';
-    store.setBotResponse(botReply);
+    const botReply = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'No response'; 
+    const cleaned = botReply.replace(/```json|```/g, '').trim();
+    console.log(cleaned)
+    let parsed = null;
+    if (cleaned.includes('tool')) {
+      parsed = JSON.parse(cleaned);
+    } 
+    if (parsed) {
+      useTools(parsed);
+    }else{
+      store.setBotResponse(botReply);
+    }
+    
+    
   } catch (error) {
     console.error(error);
     store.setBotResponse('Error al conectar con Gemini');
   }
+}
+
+async function useTools(parsed) {
+
+  if(parsed.tool == 'getPokemonInfo'){
+    const data = await getPokemonInfo(parsed.arguments.name); 
+    storePokedex.setDataPokemon(data);
+    store.setBotResponse(parsed.arguments.mensaje);
+  }else{
+    const data = storePokedex.dataPokemon;
+    if (data.name != ""){
+      store.setBotResponse('Realizando envio por favor espere...');
+      const res = await savePokemonInfo(data); 
+      store.setBotResponse('Información enviada.');
+    }else{
+      store.setBotResponse('No se esta mostrando ningun pokemon actualmente.');
+    }
+  }
+  
+
 }
 
 function toggleRecording() {
@@ -61,20 +97,26 @@ function toggleRecording() {
 </script>
 
 <template>
-  <div class="p-4 max-w-md mx-auto space-y-4">
-    <button
+  <v-container class="pa-4" max-width="400">
+    <!-- Botón de grabación -->
+    <v-btn
+      :color="store.isRecording ? 'red' : 'blue'"
+      class="ma-2"
+      rounded
+      block
       @click="toggleRecording"
-      class="px-4 py-2 rounded-full bg-blue-600 text-white w-full"
     >
       {{ store.isRecording ? 'Detener' : 'Hablar' }}
-    </button>
+    </v-btn>
 
-    <div class="bg-gray-100 p-2 rounded">
+    <!-- Sección de usuario -->
+    <v-card class="pa-2 mb-2" color="grey lighten-3" outlined>
       <strong>Tú:</strong> {{ store.userSpeech || '...' }}
-    </div>
+    </v-card>
 
-    <div class="bg-green-100 p-2 rounded">
-      <strong>Bot:</strong> {{ store.botResponse || 'Esperando...' }}
-    </div>
-  </div>
+    <!-- Sección del bot -->
+    <v-card class="pa-2" color="green lighten-4" outlined>
+      <strong>Pokedex:</strong> {{ store.botResponse || 'Esperando...' }}
+    </v-card>
+  </v-container>
 </template>
