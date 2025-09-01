@@ -25,8 +25,8 @@ const store = usePokedexStore();
 
     <v-row justify="center">
     <ul>
-      <li><strong>Peso:</strong>{{store.dataPokemon.weight}} Libras</li> 
-      <li><strong>Altura:</strong>{{store.dataPokemon.height}} Pies</li> 
+      <li v-if="store.dataPokemon.weight" ><strong>Peso:</strong>{{store.dataPokemon.weight}} Libras</li> 
+      <li v-if="store.dataPokemon.height"><strong>Altura:</strong>{{store.dataPokemon.height}} Pies</li> 
       </ul>
     </v-row>
   </div>

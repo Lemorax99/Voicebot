@@ -7,7 +7,7 @@
 
 
 <template>
-  <v-container class="pokedex" fluid>
+  <v-container class="pokedex" fluid fill-height d-flex align-center >
     <v-row no-gutters class="screens">
       <!-- Pantalla izquierda -->
       <v-col cols="5" class="left-panel">
@@ -39,6 +39,7 @@
   height: 400px;
   max-width: 800px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  margin-top:10%;
 }
 
 .screens {
