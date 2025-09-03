@@ -20,6 +20,29 @@ export async function savePokemonInfo(data: object) {
     return await res.json();
 }
 
+export async function compararPokemonInfo(pokemon1: string,pokemon2: string,rasgo: string) {
+   const resPokemon1 = await getPokemonInfo(pokemon1);
+   const resPokemon2 = await getPokemonInfo(pokemon2); 
+   let mensaje = '';
+
+   if(rasgo == 'altura'){
+    if(resPokemon1.height > resPokemon2.height){
+      mensaje = resPokemon1.name + " es mas alto que " + resPokemon2.name;
+    }else{
+      mensaje = resPokemon2.name + " es mas alto que " + resPokemon1.name;
+    }
+   }else{
+    if(resPokemon1.weight > resPokemon2.weight){
+      mensaje = resPokemon1.name + " es mas alto que " + resPokemon2.name;
+    }else{
+      mensaje = resPokemon2.name + " es mas alto que " + resPokemon1.name;
+    }
+   }
+
+   return mensaje;
+
+}
+
 export const toolDescription = `
 necesito que sigas las instrucciones para simular una function calling(
 Si el usuario te pregunta o dice cualquier cosa que no tenga nada que ver con pokemon decir que solo eres un pokedex o algo creativo referente.
@@ -32,7 +55,7 @@ y añade un mensaje generico de que estamos mostrando lo solicitado a la derecha
 {
   "tool": "getPokemonInfo",
   "arguments": { "name": "<nombre>", "mensaje":<mensaje> }
-})
+}
 Tambien dispones de la siguiente herramienta:
 - Nombre: sendPokemonInfo
 - Descripción: Envia información sobre un Pokémon consultado anteriormente.
@@ -41,7 +64,13 @@ Esta se ejecutara cuando el usuario mencione enviame los datos de este pokemon, 
 {
   "tool": "sendPokemonInfo",
   "arguments": {}
-})
+}
+Tambien dispondremos de una funcionalidad para comparar pokemones, en la cual si detectas que te das nombre de dos pokemon diferentes y algun rasgo como peso o altura,
+debes devolverme el siguiente json, asiganando cada nombre del pokemon en <pokemon1> y <pokemon2>, tambien sustituye <rasgo> por el rago a comparar (altura,peso)
+{
+  "tool": "compararPokemonInfo",
+  "arguments": { "pokemon1": "<pokemon1>","pokemon2": "<pokemon2>", "rasgo":<rasgo> }
+}
 Esto que sigue es lo que dijo el usuario: 
 `;
 

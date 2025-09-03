@@ -2,10 +2,12 @@
 import { ref } from 'vue';
 import { useVoiceStore } from '../stores/voicebot';
 import { usePokedexStore } from '../stores/pokedex';
-import {savePokemonInfo,getPokemonInfo,toolDescription} from '../tools/pokemonTool'
+import { useHistorialStore } from '../stores/historial';
+import {compararPokemonInfo,savePokemonInfo,getPokemonInfo,toolDescription} from '../tools/pokemonTool'
 
 const store = useVoiceStore();
 const storePokedex = usePokedexStore();
+const storeHistorial = useHistorialStore();
 const recognition = ref<SpeechRecognition | null>(null);
 
 // Inicializa reconocimiento de voz (Web Speech API)
@@ -31,10 +33,10 @@ function initSpeechRecognition() {
   return recog;
 }
 
-async function sendToGemini(text: string) {
+async function sendToGemini(sendText: string) {
   try { 
 
-    text = toolDescription + text
+    const text = toolDescription + sendText
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
       method: 'POST',
@@ -45,14 +47,13 @@ async function sendToGemini(text: string) {
     }); 
     const data = await response.json();
     const botReply = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'No response'; 
-    const cleaned = botReply.replace(/```json|```/g, '').trim();
-    console.log(cleaned)
+    const cleaned = botReply.replace(/```json|```/g, '').trim(); 
     let parsed = null;
     if (cleaned.includes('tool')) {
       parsed = JSON.parse(cleaned);
     } 
     if (parsed) {
-      useTools(parsed);
+      useTools(parsed,sendText);
     }else{
       store.setBotResponse(botReply);
     }
@@ -64,12 +65,17 @@ async function sendToGemini(text: string) {
   }
 }
 
-async function useTools(parsed) {
-
+async function useTools(parsed,text) { 
   if(parsed.tool == 'getPokemonInfo'){
     const data = await getPokemonInfo(parsed.arguments.name); 
     storePokedex.setDataPokemon(data);
+    storeHistorial.setDataHistorial = storeHistorial.dataHistorial.push({"title":text,subtitle:"Pokemon : "+parsed.arguments.name})
+    console.log(storeHistorial.dataHistorial);
     store.setBotResponse(parsed.arguments.mensaje);
+  }
+  else if(parsed.tool == 'compararPokemonInfo'){
+    const response = await compararPokemonInfo(parsed.arguments.pokemon1,parsed.arguments.pokemon2,parsed.arguments.rasgos);
+    store.setBotResponse(response); 
   }else{
     const data = storePokedex.dataPokemon;
     if (data.name != ""){
@@ -85,6 +91,10 @@ async function useTools(parsed) {
 }
 
 function toggleRecording() {
+
+  store.botResponse = null;
+  store.userSpeech = null;
+
   if (!recognition.value) recognition.value = initSpeechRecognition();
   if (!recognition.value) return;
 
@@ -98,25 +108,70 @@ function toggleRecording() {
 
 <template>
   <v-container class="pa-4" max-width="400">
-    <!-- Botón de grabación -->
-    <v-btn
-      :color="store.isRecording ? 'red' : 'blue'"
-      class="ma-2"
-      rounded
-      block
+     <div class="py-6">
+    <!-- Mensaje del usuario -->
+    <transition name="chat">
+      <div v-if="store.userSpeech" class="d-flex justify-end mb-4">
+        <v-sheet class="pa-3 rounded-lg" color="blue-darken-3">
+          <p class="text-body-2 text-white">{{ store.userSpeech }}</p>
+        </v-sheet>
+      </div>
+    </transition>
+
+    <!-- Mensaje del bot -->
+    <transition name="chat">
+      <div v-if="store.botResponse" class="d-flex justify-start">
+        <v-sheet class="pa-3 rounded-lg" color="grey-darken-3">
+          <p class="text-body-2 text-white">{{ store.botResponse }}</p>
+        </v-sheet>
+      </div>
+    </transition>
+  </div>
+  <div class="footer-container" id="bordegris">
+    <v-btn 
+      size="80"
+      rounded="circle"
+      elevation="8"
+      class="ma-4 "
+      :color="store.isRecording ? 'gray' : '#EA2A33'"   
       @click="toggleRecording"
     >
-      {{ store.isRecording ? 'Detener' : 'Hablar' }}
+      <span 
+        class="material-symbols-outlined" 
+        style="font-size: 40px"  
+      >
+        mic
+      </span> 
     </v-btn>
-
-    <!-- Sección de usuario -->
-    <v-card class="pa-2 mb-2" color="grey lighten-3" outlined>
-      <strong>Tú:</strong> {{ store.userSpeech || '...' }}
-    </v-card>
-
-    <!-- Sección del bot -->
-    <v-card class="pa-2" color="green lighten-4" outlined>
-      <strong>Pokedex:</strong> {{ store.botResponse || 'Esperando...' }}
-    </v-card>
+  </div>
   </v-container>
+ 
 </template>
+
+<style>
+.footer-container {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  border-top: 1px solid #1F2937;  
+  display: flex;
+  justify-content: center;  
+  padding: 8px 0;
+  z-index: 1000;   
+}
+/* Animaciones para aparecer/desaparecer */
+.chat-enter-active,
+.chat-leave-active {
+  transition: all 0.4s ease;
+}
+.chat-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.chat-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+ 
+</style>
